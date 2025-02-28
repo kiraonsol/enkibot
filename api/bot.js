@@ -23,7 +23,7 @@ initializeApp(firebaseConfig);
 const db = getDatabase();
 
 // Function to set webhook with retries
-async function setWebhookWithRetry(maxRetries = 3, delay = 2000) {
+async function setWebhookWithRetry(maxRetries = 5, delay = 3000) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       await bot.telegram.setWebhook(webhookUrl);
