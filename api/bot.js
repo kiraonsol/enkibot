@@ -34,19 +34,14 @@ async function setWebhookWithRetry(maxRetries = 5, delay = 3000) {
 setWebhookWithRetry();
 
 // Bot handlers
-bot.start((ctx) => {
+bot.onText(/\/start/, (msg) => {
   try {
-    const startPayload = ctx.startPayload;
-    if (startPayload && startPayload.startsWith('submit_name_')) {
-      // Temporarily disable name submission via bot chat
-      ctx.reply('Name submission via bot chat is not yet enabled. Please try again in-game.');
-    } else {
-      ctx.replyWithGame('enki');
-      console.log(`Sent game to chat ${ctx.chat.id}`);
-    }
+    const chatId = msg.chat.id;
+    bot.sendGame(chatId, 'enki');
+    console.log(`Sent game to chat ${chatId}`);
   } catch (error) {
     console.error('Error handling /start:', error);
-    ctx.reply('Error occurred. Please try again later.');
+    bot.sendMessage(msg.chat.id, 'Error occurred. Please try again later.');
   }
 });
 
@@ -54,11 +49,12 @@ bot.on('callback_query', async (ctx) => {
   try {
     console.log('Received callback query:', JSON.stringify(ctx.callbackQuery, null, 2));
     if (ctx.callbackQuery.game_short_name === 'enki') {
-      // Use ctx.answerCbQuery (Telegraf shorthand)
-      await ctx.answerCbQuery({
+      // Answer the callback query with the game URL
+      await ctx.answerCallbackQuery({
+        callback_query_id: ctx.callbackQuery.id,
         url: gameUrl
       });
-      console.log(`User ${ctx.callbackQuery.from.id} opened the game`);
+      console.log(`User ${ctx.callbackQuery.from.id} opened the game with URL: ${gameUrl}`);
     } else {
       console.log('Callback query does not match game_short_name "enki":', ctx.callbackQuery.game_short_name);
     }
@@ -87,7 +83,7 @@ module.exports = async (req, res) => {
   try {
     console.log('Received webhook request:', JSON.stringify(req.body, null, 2));
     // Handle Telegram webhook updates
-    await bot.handleUpdate(req.body);
+    bot.processUpdate(req.body);
     res.status(200).send('OK');
   } catch (error) {
     console.error('Error in webhook handler:', error);
