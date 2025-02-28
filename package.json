@@ -2,11 +2,12 @@
   "name": "enkibot",
   "version": "1.0.0",
   "description": "Telegram bot for ENKI game",
-  "main": "api/bot.js",
+  "main": "bot.js",
   "scripts": {
-    "start": "node api/bot.js"
+    "start": "node bot.js"
   },
   "dependencies": {
-    "node-telegram-bot-api": "^0.66.0"
+    "node-telegram-bot-api": "^0.66.0",
+    "firebase": "^10.14.1"
   }
 }
