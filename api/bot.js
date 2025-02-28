@@ -54,8 +54,8 @@ bot.on('callback_query', async (ctx) => {
   try {
     console.log('Received callback query:', JSON.stringify(ctx.callbackQuery, null, 2));
     if (ctx.callbackQuery.game_short_name === 'enki') {
-      // Use ctx.answerCallbackQuery directly
-      await ctx.answerCallbackQuery({
+      // Use ctx.answerCbQuery (Telegraf shorthand)
+      await ctx.answerCbQuery({
         url: gameUrl
       });
       console.log(`User ${ctx.callbackQuery.from.id} opened the game`);
@@ -64,7 +64,7 @@ bot.on('callback_query', async (ctx) => {
     }
   } catch (error) {
     console.error('Error handling callback:', error);
-    // Fallback to raw Telegram API call if ctx.answerCallbackQuery fails
+    // Fallback to raw Telegram API call via bot.telegram
     try {
       await bot.telegram.answerCallbackQuery(ctx.callbackQuery.id, {
         show_alert: true,
