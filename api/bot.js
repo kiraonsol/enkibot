@@ -29,7 +29,7 @@ try {
 }
 
 // Function to set webhook with retries
-async function setWebhookWithRetry(maxRetries = 10, delay = 10000) { // Increased retries and delay
+async function setWebhookWithRetry(maxRetries = 10, delay = 10000) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       await bot.setWebHook(webhookUrl);
@@ -65,16 +65,29 @@ async function setWebhookWithRetry(maxRetries = 10, delay = 10000) { // Increase
 bot.onText(/\/start/, async (msg) => {
   try {
     const chatId = msg.chat.id;
-    // Send a message with a button to launch the Mini App
-    await bot.sendMessage(chatId, 'Click to play Enki:', {
-      reply_markup: {
-        inline_keyboard: [[{ text: 'Play Enki', web_app: { url: gameUrl } }]]
-      }
-    });
-    console.log(`Sent Mini App link to chat ${chatId}`);
+    // Send a Telegram Game object with a "Play Enki" button
+    await bot.sendGame(chatId, 'enki');
+    console.log(`Sent game to chat ${chatId}`);
   } catch (error) {
     console.error('Error handling /start:', error);
     bot.sendMessage(msg.chat.id, 'Error occurred. Please try again later.');
+  }
+});
+
+bot.on('callback_query', async (query) => {
+  try {
+    console.log('Received callback query:', JSON.stringify(query, null, 2));
+    if (query.game_short_name === 'enki') {
+      // Launch the Mini App
+      await bot.answerCallbackQuery(query.id, { url: gameUrl });
+      console.log(`Successfully answered callback query ${query.id} for user ${query.from.id} with URL: ${gameUrl}`);
+      console.log(`User ${query.from.id} opened the game with URL: ${gameUrl}`);
+    } else {
+      console.log('Callback query does not match game_short_name "enki":', query.game_short_name);
+    }
+  } catch (error) {
+    console.error('Error handling callback:', error);
+    await bot.answerCallbackQuery(query.id, { show_alert: true, text: 'Error opening game. Try again.' });
   }
 });
 
