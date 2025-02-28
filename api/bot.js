@@ -30,8 +30,14 @@ async function setWebhookWithRetry(maxRetries = 5, delay = 3000) {
   return false;
 }
 
-// Set webhook on startup
-setWebhookWithRetry();
+// Set webhook on startup safely
+(async () => {
+  try {
+    await setWebhookWithRetry();
+  } catch (error) {
+    console.error('Failed to set webhook after all retries:', error);
+  }
+})();
 
 // Bot handlers
 bot.onText(/\/start/, (msg) => {
