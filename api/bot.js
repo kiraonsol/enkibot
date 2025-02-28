@@ -1,5 +1,4 @@
 const { Telegraf } = require('telegraf');
-const fetch = require('node-fetch');
 
 // Use environment variable for bot token
 const token = process.env.BOT_TOKEN || '8098735296:AAGLAKxEO1KMHAJ8-WQLvp9QDPS3MwA9iQI';
@@ -9,25 +8,6 @@ const bot = new Telegraf(token);
 
 // Webhook URL for Vercel deployment
 const webhookUrl = process.env.WEBHOOK_URL || 'https://enkibot.vercel.app/api/bot';
-
-// Firebase configuration (same as in index.html)
-const firebaseConfig = {
-  apiKey: "AIzaSyBlTVNMSh1hCjzLLu5SV4XJZRfyOZgLMVc",
-  databaseURL: "https://enki-game-default-rtdb.europe-west1.firebasedatabase.app",
-};
-
-// Initialize Firebase Admin SDK with error handling
-let db;
-try {
-  const { initializeApp } = require('firebase/app');
-  const { getDatabase, ref, push, set, get } = require('firebase/database');
-  initializeApp(firebaseConfig);
-  db = getDatabase();
-  console.log('Firebase initialized successfully');
-} catch (error) {
-  console.error('Failed to initialize Firebase:', error);
-  db = null; // Fallback to avoid runtime errors
-}
 
 // Function to set webhook with retries
 async function setWebhookWithRetry(maxRetries = 5, delay = 3000) {
@@ -56,14 +36,10 @@ setWebhookWithRetry();
 // Bot handlers
 bot.start((ctx) => {
   try {
-    // Initialize session if undefined
-    ctx.session = ctx.session || {};
     const startPayload = ctx.startPayload;
     if (startPayload && startPayload.startsWith('submit_name_')) {
-      const score = startPayload.split('_')[2];
-      ctx.reply('Please reply with your name (max 10 characters) to save your score: ' + score);
-      ctx.session.awaitingName = true;
-      ctx.session.score = parseInt(score);
+      // Temporarily disable name submission via bot chat
+      ctx.reply('Name submission via bot chat is not yet enabled. Please try again in-game.');
     } else {
       ctx.replyWithGame('enki');
       console.log(`Sent game to chat ${ctx.chat.id}`);
@@ -86,40 +62,14 @@ bot.on('callback_query', (ctx) => {
   }
 });
 
-// Handle text messages for name submission
-bot.on('text', async (ctx) => {
-  try {
-    // Initialize session if undefined
-    ctx.session = ctx.session || {};
-    if (ctx.session.awaitingName) {
-      let name = ctx.message.text.trim();
-      if (name.length > 10) {
-        name = name.substring(0, 10);
-        ctx.reply('Name truncated to 10 characters.');
-      }
-      const score = ctx.session.score;
-      if (!db) {
-        ctx.reply('Error: Database not available. Please try again later.');
-        return;
-      }
-      // Save to Firebase
-      const leaderboardRef = ref(db, 'leaderboard');
-      await push(leaderboardRef, { name, score });
-      ctx.reply(`Score saved for ${name}: ${score}`);
-      // Reset session
-      ctx.session.awaitingName = false;
-      ctx.session.score = null;
-      // Notify user
-      ctx.reply('Your score has been added to the leaderboard!');
-    }
-  } catch (error) {
-    console.error('Error saving score via bot:', error);
-    ctx.reply('Error saving your score. Please try again.');
-  }
-});
-
 // Export handler for Vercel serverless function
 module.exports = async (req, res) => {
+  // Health check endpoint
+  if (req.method === 'GET' && req.url === '/api/health') {
+    res.status(200).send('Bot is running');
+    return;
+  }
+
   try {
     console.log('Received webhook request:', JSON.stringify(req.body, null, 2));
     // Handle Telegram webhook updates
