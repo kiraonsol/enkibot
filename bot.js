@@ -7,7 +7,7 @@ const gameUrl = 'https://kiraonsol.github.io/enki-game/';
 const webhookUrl = 'https://enkibot.onrender.com'; // Your Render URL
 
 // Use the Render-provided PORT environment variable
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000; // Render will override 3000 with its assigned port
 
 // Initialize Telegram Bot with webhook
 const bot = new TelegramBot(token, { webHook: { port: PORT } });
