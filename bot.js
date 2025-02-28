@@ -7,10 +7,10 @@ const gameUrl = 'https://kiraonsol.github.io/enki-game/';
 const bot = new Telegraf(token);
 
 // Webhook URL for Vercel deployment
-const webhookUrl = process.env.WEBHOOK_URL || 'https://enkibot.vercel.app/api/webhook';
+const webhookUrl = process.env.WEBHOOK_URL || 'https://enkibot.vercel.app/api/bot';
 
 // Set webhook
-bot.telegram.setWebhook(`${webhookUrl}`).then(() => {
+bot.telegram.setWebhook(webhookUrl).then(() => {
   console.log(`Webhook set to ${webhookUrl}`);
 }).catch(err => {
   console.error('Error setting webhook:', err);
