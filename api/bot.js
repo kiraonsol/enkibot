@@ -1,10 +1,10 @@
-const { Telegraf } = require('telegraf');
+const TelegramBot = require('node-telegram-bot-api');
 
 // Use environment variable for bot token
 const token = process.env.BOT_TOKEN || '8098735296:AAGLAKxEO1KMHAJ8-WQLvp9QDPS3MwA9iQI';
 const gameUrl = 'https://kiraonsol.github.io/enki-game/';
 
-const bot = new Telegraf(token);
+const bot = new TelegramBot(token);
 
 // Webhook URL for Vercel deployment
 const webhookUrl = process.env.WEBHOOK_URL || 'https://enkibot.vercel.app/api/bot';
@@ -13,7 +13,7 @@ const webhookUrl = process.env.WEBHOOK_URL || 'https://enkibot.vercel.app/api/bo
 async function setWebhookWithRetry(maxRetries = 5, delay = 3000) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      await bot.telegram.setWebhook(webhookUrl);
+      await bot.setWebHook(webhookUrl);
       console.log(`Webhook successfully set to ${webhookUrl} on attempt ${attempt}`);
       return true;
     } catch (err) {
@@ -45,30 +45,18 @@ bot.onText(/\/start/, (msg) => {
   }
 });
 
-bot.on('callback_query', async (ctx) => {
+bot.on('callback_query', (query) => {
   try {
-    console.log('Received callback query:', JSON.stringify(ctx.callbackQuery, null, 2));
-    if (ctx.callbackQuery.game_short_name === 'enki') {
-      // Answer the callback query with the game URL
-      await ctx.answerCallbackQuery({
-        callback_query_id: ctx.callbackQuery.id,
-        url: gameUrl
-      });
-      console.log(`User ${ctx.callbackQuery.from.id} opened the game with URL: ${gameUrl}`);
+    console.log('Received callback query:', JSON.stringify(query, null, 2));
+    if (query.game_short_name === 'enki') {
+      bot.answerCallbackQuery(query.id, { url: gameUrl });
+      console.log(`User ${query.from.id} opened the game with URL: ${gameUrl}`);
     } else {
-      console.log('Callback query does not match game_short_name "enki":', ctx.callbackQuery.game_short_name);
+      console.log('Callback query does not match game_short_name "enki":', query.game_short_name);
     }
   } catch (error) {
     console.error('Error handling callback:', error);
-    // Fallback to raw Telegram API call via bot.telegram
-    try {
-      await bot.telegram.answerCallbackQuery(ctx.callbackQuery.id, {
-        show_alert: true,
-        text: "Error opening game. Try again."
-      });
-    } catch (fallbackError) {
-      console.error('Fallback answerCallbackQuery failed:', fallbackError);
-    }
+    bot.answerCallbackQuery(query.id, { show_alert: true, text: 'Error opening game. Try again.' });
   }
 });
 
