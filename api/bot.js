@@ -16,11 +16,18 @@ const firebaseConfig = {
   databaseURL: "https://enki-game-default-rtdb.europe-west1.firebasedatabase.app",
 };
 
-// Initialize Firebase Admin SDK for server-side access
-const { initializeApp } = require('firebase/app');
-const { getDatabase, ref, push, set, get } = require('firebase/database');
-initializeApp(firebaseConfig);
-const db = getDatabase();
+// Initialize Firebase Admin SDK with error handling
+let db;
+try {
+  const { initializeApp } = require('firebase/app');
+  const { getDatabase, ref, push, set, get } = require('firebase/database');
+  initializeApp(firebaseConfig);
+  db = getDatabase();
+  console.log('Firebase initialized successfully');
+} catch (error) {
+  console.error('Failed to initialize Firebase:', error);
+  db = null; // Fallback to avoid runtime errors
+}
 
 // Function to set webhook with retries
 async function setWebhookWithRetry(maxRetries = 5, delay = 3000) {
@@ -49,17 +56,21 @@ setWebhookWithRetry();
 // Bot handlers
 bot.start((ctx) => {
   try {
+    // Initialize session if undefined
+    ctx.session = ctx.session || {};
     const startPayload = ctx.startPayload;
     if (startPayload && startPayload.startsWith('submit_name_')) {
       const score = startPayload.split('_')[2];
       ctx.reply('Please reply with your name (max 10 characters) to save your score: ' + score);
-      ctx.session = { awaitingName: true, score: parseInt(score) };
+      ctx.session.awaitingName = true;
+      ctx.session.score = parseInt(score);
     } else {
       ctx.replyWithGame('enki');
       console.log(`Sent game to chat ${ctx.chat.id}`);
     }
   } catch (error) {
     console.error('Error handling /start:', error);
+    ctx.reply('Error occurred. Please try again later.');
   }
 });
 
@@ -77,14 +88,20 @@ bot.on('callback_query', (ctx) => {
 
 // Handle text messages for name submission
 bot.on('text', async (ctx) => {
-  if (ctx.session && ctx.session.awaitingName) {
-    try {
+  try {
+    // Initialize session if undefined
+    ctx.session = ctx.session || {};
+    if (ctx.session.awaitingName) {
       let name = ctx.message.text.trim();
       if (name.length > 10) {
         name = name.substring(0, 10);
         ctx.reply('Name truncated to 10 characters.');
       }
       const score = ctx.session.score;
+      if (!db) {
+        ctx.reply('Error: Database not available. Please try again later.');
+        return;
+      }
       // Save to Firebase
       const leaderboardRef = ref(db, 'leaderboard');
       await push(leaderboardRef, { name, score });
@@ -94,21 +111,23 @@ bot.on('text', async (ctx) => {
       ctx.session.score = null;
       // Notify user
       ctx.reply('Your score has been added to the leaderboard!');
-    } catch (error) {
-      console.error('Error saving score via bot:', error);
-      ctx.reply('Error saving your score. Please try again.');
     }
+  } catch (error) {
+    console.error('Error saving score via bot:', error);
+    ctx.reply('Error saving your score. Please try again.');
   }
 });
 
 // Export handler for Vercel serverless function
 module.exports = async (req, res) => {
   try {
+    console.log('Received webhook request:', JSON.stringify(req.body, null, 2));
     // Handle Telegram webhook updates
     await bot.handleUpdate(req.body);
     res.status(200).send('OK');
   } catch (error) {
     console.error('Error in webhook handler:', error);
+    console.error('Request body:', JSON.stringify(req.body, null, 2));
     res.status(500).send('Error');
   }
 };
