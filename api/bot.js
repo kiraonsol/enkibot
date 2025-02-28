@@ -22,12 +22,29 @@ const { getDatabase, ref, push, set, get } = require('firebase/database');
 initializeApp(firebaseConfig);
 const db = getDatabase();
 
-// Set webhook
-bot.telegram.setWebhook(webhookUrl).then(() => {
-  console.log(`Webhook set to ${webhookUrl}`);
-}).catch(err => {
-  console.error('Error setting webhook:', err);
-});
+// Function to set webhook with retries
+async function setWebhookWithRetry(maxRetries = 3, delay = 2000) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      await bot.telegram.setWebhook(webhookUrl);
+      console.log(`Webhook successfully set to ${webhookUrl} on attempt ${attempt}`);
+      return true;
+    } catch (err) {
+      console.error(`Failed to set webhook on attempt ${attempt}:`, err);
+      console.error('Webhook URL attempted:', webhookUrl);
+      console.error('Error details:', JSON.stringify(err, null, 2));
+      if (attempt < maxRetries) {
+        console.log(`Retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  console.error('All attempts to set webhook failed.');
+  return false;
+}
+
+// Set webhook on startup
+setWebhookWithRetry();
 
 // Bot handlers
 bot.start((ctx) => {
