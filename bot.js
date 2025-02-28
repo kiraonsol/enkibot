@@ -1,73 +1,51 @@
-const express = require('express');
-const bodyParser = require('body-parser');
-const TelegramBot = require('node-telegram-bot-api');
+const { Telegraf } = require('telegraf');
 
+// Use environment variable for bot token
 const token = process.env.BOT_TOKEN || '8098735296:AAGLAKxEO1KMHAJ8-WQLvp9QDPS3MwA9iQI';
 const gameUrl = 'https://kiraonsol.github.io/enki-game/';
-const webhookUrl = 'https://enkibot.onrender.com'; // Your Render URL
 
-// Use the Render-provided PORT environment variable
-const PORT = process.env.PORT || 3000; // Render will override 3000 with its assigned port
+const bot = new Telegraf(token);
 
-// Initialize Telegram Bot with webhook
-const bot = new TelegramBot(token, { webHook: { port: PORT } });
+// Webhook URL for Vercel deployment
+const webhookUrl = process.env.WEBHOOK_URL || 'https://enkibot.vercel.app/api/webhook';
 
 // Set webhook
-const setWebhook = async () => {
-  try {
-    const webhook = `${webhookUrl}/bot${token}`;
-    await bot.setWebHook(webhook);
-    console.log(`Webhook set to ${webhook}`);
-  } catch (error) {
-    console.error('Error setting webhook:', error);
-  }
-};
-
-// Initialize Express app
-const app = express();
-app.use(bodyParser.json());
-
-// Webhook route
-app.post(`/bot${token}`, (req, res) => {
-  try {
-    bot.processUpdate(req.body);
-    res.sendStatus(200);
-  } catch (error) {
-    console.error('Error processing update:', error);
-    res.sendStatus(500);
-  }
-});
-
-// Health check route for Render to detect the app is running
-app.get('/', (req, res) => {
-  res.send('Enkibot is running!');
+bot.telegram.setWebhook(`${webhookUrl}`).then(() => {
+  console.log(`Webhook set to ${webhookUrl}`);
+}).catch(err => {
+  console.error('Error setting webhook:', err);
 });
 
 // Bot handlers
-bot.onText(/\/start/, (msg) => {
+bot.start((ctx) => {
   try {
-    const chatId = msg.chat.id;
-    bot.sendGame(chatId, 'enki');
-    console.log(`Sent game to chat ${chatId}`);
+    ctx.replyWithGame('enki');
+    console.log(`Sent game to chat ${ctx.chat.id}`);
   } catch (error) {
     console.error('Error handling /start:', error);
   }
 });
 
-bot.on('callback_query', (query) => {
+bot.on('callback_query', (ctx) => {
   try {
-    if (query.game_short_name === 'enki') {
-      bot.answerCallbackQuery(query.id, { url: gameUrl });
-      console.log(`User ${query.from.id} opened the game`);
+    if (ctx.callbackQuery.game_short_name === 'enki') {
+      ctx.answerCallbackQuery({ url: gameUrl });
+      console.log(`User ${ctx.callbackQuery.from.id} opened the game`);
     }
   } catch (error) {
     console.error('Error handling callback:', error);
-    bot.answerCallbackQuery(query.id, { show_alert: true, text: "Error opening game. Try again." });
+    ctx.answerCallbackQuery({ show_alert: true, text: "Error opening game. Try again." });
   }
 });
 
-// Start the server
-app.listen(PORT, async () => {
-  console.log(`Bot server running on port ${PORT}`);
-  await setWebhook();
-});
+// Export handler for Vercel serverless function
+module.exports = async (req, res) => {
+  try {
+    // Handle Telegram webhook updates
+    await bot.handleUpdate(req.body);
+    res.status(200).send('OK');
+  } catch (error) {
+    console.error('Error in webhook handler:', error);
+    res.status(500).send('Error');
+  }
+};
