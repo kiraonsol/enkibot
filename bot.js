@@ -1,10 +1,13 @@
 const TelegramBot = require('node-telegram-bot-api');
 
 // Use environment variable for bot token
-const token = '8098735296:AAGLAKxEO1KMHAJ8-WQLvp9QDPS3MwA9iQI'; // Hardcode for now, move to env var in production
+const token = process.env.BOT_TOKEN || '8098735296:AAGLAKxEO1KMHAJ8-WQLvp9QDPS3MwA9iQI';
 const gameUrl = 'https://kiraonsol.github.io/enki-game/';
 
-const bot = new TelegramBot(token, { polling: true });
+const bot = new TelegramBot(token);
+
+// Webhook URL for Vercel deployment
+const webhookUrl = process.env.WEBHOOK_URL || 'https://enkibot.vercel.app/api/bot';
 
 // Firebase configuration (same as in index.html)
 const firebaseConfig = {
@@ -24,6 +27,39 @@ try {
   console.error('Failed to initialize Firebase in bot.js:', error);
   db = null;
 }
+
+// Function to set webhook with retries
+async function setWebhookWithRetry(maxRetries = 10, delay = 10000) { // Increased retries and delay
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      await bot.setWebHook(webhookUrl);
+      console.log(`Webhook successfully set to ${webhookUrl} on attempt ${attempt}`);
+      return true;
+    } catch (err) {
+      console.error(`Failed to set webhook on attempt ${attempt}:`, err);
+      console.error('Webhook URL attempted:', webhookUrl);
+      console.error('Error details:', JSON.stringify(err, null, 2));
+      if (attempt < maxRetries) {
+        console.log(`Retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  console.error('All attempts to set webhook failed.');
+  return false;
+}
+
+// Set webhook on startup safely
+(async () => {
+  try {
+    const success = await setWebhookWithRetry();
+    if (!success) {
+      console.error('Webhook setup failed after all retries, but continuing to run bot.');
+    }
+  } catch (error) {
+    console.error('Unhandled error during webhook setup:', error);
+  }
+})();
 
 // Bot handlers
 bot.onText(/\/start/, async (msg) => {
@@ -89,4 +125,22 @@ bot.on('message', async (msg) => {
   }
 });
 
-console.log('Bot running in polling mode...');
+// Export handler for Vercel serverless function
+module.exports = async (req, res) => {
+  // Health check endpoint
+  if (req.method === 'GET' && req.url === '/api/health') {
+    res.status(200).send('Bot is running');
+    return;
+  }
+
+  try {
+    console.log('Received webhook request:', JSON.stringify(req.body, null, 2));
+    // Handle Telegram webhook updates
+    bot.processUpdate(req.body);
+    res.status(200).send('OK');
+  } catch (error) {
+    console.error('Error in webhook handler:', error);
+    console.error('Request body:', JSON.stringify(req.body, null, 2));
+    res.status(500).send('Error');
+  }
+};
