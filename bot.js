@@ -4,10 +4,26 @@ const TelegramBot = require('node-telegram-bot-api');
 
 const token = process.env.BOT_TOKEN || '8098735296:AAGLAKxEO1KMHAJ8-WQLvp9QDPS3MwA9iQI';
 const gameUrl = 'https://kiraonsol.github.io/enki-game/';
-const webhookUrl = 'https://enkibot.onrender.com'; // Replace with your actual Render URL
+const webhookUrl = 'https://enkibot.onrender.com'; // Your Render URL
 
-const bot = new TelegramBot(token, { webHook: { port: process.env.PORT || 3000 } });
+// Dynamically set the port from environment variable or default to 3000 for local testing
+const PORT = process.env.PORT || 3000;
 
+// Initialize Telegram Bot with webhook
+const bot = new TelegramBot(token, { webHook: { port: PORT } });
+
+// Set webhook
+const setWebhook = async () => {
+  try {
+    const webhook = `${webhookUrl}/bot${token}`;
+    await bot.setWebHook(webhook);
+    console.log(`Webhook set to ${webhook}`);
+  } catch (error) {
+    console.error('Error setting webhook:', error);
+  }
+};
+
+// Initialize Express app
 const app = express();
 app.use(bodyParser.json());
 
@@ -22,27 +38,9 @@ app.post(`/bot${token}`, (req, res) => {
   }
 });
 
-// Health check route
+// Health check route for Render to detect the app is running
 app.get('/', (req, res) => {
   res.send('Enkibot is running!');
-});
-
-// Set webhook on startup
-const setWebhook = async () => {
-  try {
-    const webhook = `${webhookUrl}/bot${token}`;
-    await bot.setWebHook(webhook);
-    console.log(`Webhook set to ${webhook}`);
-  } catch (error) {
-    console.error('Error setting webhook:', error);
-  }
-};
-
-// Start the server
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, async () => {
-  console.log(`Bot server running on port ${PORT}`);
-  await setWebhook();
 });
 
 // Bot handlers
@@ -66,4 +64,10 @@ bot.on('callback_query', (query) => {
     console.error('Error handling callback:', error);
     bot.answerCallbackQuery(query.id, { show_alert: true, text: "Error opening game. Try again." });
   }
+});
+
+// Start the server
+app.listen(PORT, async () => {
+  console.log(`Bot server running on port ${PORT}`);
+  await setWebhook();
 });
