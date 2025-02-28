@@ -50,15 +50,22 @@ bot.start((ctx) => {
   }
 });
 
-bot.on('callback_query', (ctx) => {
+bot.on('callback_query', async (ctx) => {
   try {
+    console.log('Received callback query:', JSON.stringify(ctx.callbackQuery, null, 2));
     if (ctx.callbackQuery.game_short_name === 'enki') {
-      ctx.answerCallbackQuery({ url: gameUrl });
+      // Use ctx.telegram.answerCallbackQuery for reliability
+      await ctx.telegram.answerCallbackQuery(ctx.callbackQuery.id, { url: gameUrl });
       console.log(`User ${ctx.callbackQuery.from.id} opened the game`);
+    } else {
+      console.log('Callback query does not match game_short_name "enki":', ctx.callbackQuery.game_short_name);
     }
   } catch (error) {
     console.error('Error handling callback:', error);
-    ctx.answerCallbackQuery({ show_alert: true, text: "Error opening game. Try again." });
+    // Fallback to ensure Telegram doesn’t retry endlessly
+    if (ctx.callbackQuery && ctx.callbackQuery.id) {
+      await ctx.telegram.answerCallbackQuery(ctx.callbackQuery.id, { show_alert: true, text: "Error opening game. Try again." });
+    }
   }
 });
 
